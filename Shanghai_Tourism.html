@@ -58,6 +58,29 @@
         .map-line-taxi { border-left: 3px solid #f97316; }
         .map-line-hsr { border-left: 3px solid #10b981; }
         .map-line-boat { border-left: 3px double #06b6d4; }
+
+        /* 手機版字體強制改為 16px 測試與排版微調 (螢幕寬度 < 768px) */
+        @media (max-width: 767px) {
+            .text-3xs, 
+            .text-2xs, 
+            .text-xs, 
+            .text-sm, 
+            .text-base {
+                font-size: 16px !important;
+                line-height: 1.6 !important;
+            }
+            /* 調整標題比例，避免與 16px 的內文擠在一起 */
+            .text-lg {
+                font-size: 18px !important;
+            }
+            .text-xl, .text-2xl {
+                font-size: 20px !important;
+            }
+            .text-3xl, .text-4xl, .text-6xl {
+                font-size: 26px !important;
+                line-height: 1.3 !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
