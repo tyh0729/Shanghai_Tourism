@@ -2466,9 +2466,9 @@
     </footer>
 
     <!-- ==================== 字體大小浮動縮放面板 (支援收合展開 FAB) ==================== -->
-    <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <div id="draggable-fab-container" class="fixed bottom-6 right-6 z-50 flex flex-col items-center gap-3">
         <!-- 面板主體 (預設為隱藏/收合狀態) -->
-        <div id="font-control-panel" class="opacity-0 scale-95 pointer-events-none translate-y-4 flex flex-col gap-2 bg-white/95 backdrop-blur-md p-2.5 rounded-2xl shadow-2xl border border-slate-200/80 transition-all duration-300 origin-bottom-right">
+        <div id="font-control-panel" class="opacity-0 scale-95 pointer-events-none translate-y-4 flex flex-col gap-2 bg-white/95 backdrop-blur-md p-2.5 rounded-2xl shadow-2xl border border-slate-200/80 transition-all duration-300 origin-bottom">
             <div class="text-[10px] text-center font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1.5 mb-1 select-none">
                 字體大小
             </div>
@@ -2494,9 +2494,9 @@
             </button>
         </div>
 
-        <!-- 懸浮切換開關按鈕 (FAB) -->
-        <button onclick="toggleFontPanel()" id="font-panel-toggle" title="字體設定" class="w-12 h-12 rounded-full bg-brand-600 text-white shadow-xl hover:bg-brand-500 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center text-xl z-50">
-            <i class="fa-solid fa-font"></i>
+        <!-- 懸浮切換開關按鈕 (FAB) 加入 cursor-move 與 touch-none 支援拖曳 -->
+        <button id="font-panel-toggle" title="拖曳移動 / 點擊設定" class="w-12 h-12 rounded-full bg-brand-600 text-white shadow-xl hover:bg-brand-500 hover:scale-105 active:scale-95 transition-colors duration-300 flex items-center justify-center text-xl z-50 cursor-move touch-none">
+            <i class="fa-solid fa-font pointer-events-none"></i>
         </button>
     </div>
 
@@ -2672,6 +2672,114 @@
             // 更新即時百分比顯示
             document.getElementById('font-scale-display').innerText = Math.round(currentScale * 100) + '%';
         }
+
+        // ==================== [FAB 按鈕拖曳核心功能] ====================
+        const fabContainer = document.getElementById('draggable-fab-container');
+        const fabToggleBtn = document.getElementById('font-panel-toggle');
+        
+        let isDragging = false;
+        let hasMoved = false; // 區分「點擊」還是「拖曳」
+        let dragStartX, dragStartY, initialLeft, initialTop;
+
+        function dragStart(e) {
+            if (e.type === 'touchstart') {
+                dragStartX = e.touches[0].clientX;
+                dragStartY = e.touches[0].clientY;
+            } else {
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+            }
+
+            const rect = fabContainer.getBoundingClientRect();
+            initialLeft = rect.left;
+            initialTop = rect.top;
+
+            // 轉為 top/left 絕對定位，解除原本的 bottom/right 固定限制
+            fabContainer.style.left = initialLeft + 'px';
+            fabContainer.style.top = initialTop + 'px';
+            fabContainer.style.bottom = 'auto';
+            fabContainer.style.right = 'auto';
+
+            isDragging = true;
+            hasMoved = false;
+
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('mouseup', dragEnd);
+            document.addEventListener('touchend', dragEnd);
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+
+            let currentX, currentY;
+            if (e.type === 'touchmove') {
+                currentX = e.touches[0].clientX;
+                currentY = e.touches[0].clientY;
+            } else {
+                currentX = e.clientX;
+                currentY = e.clientY;
+            }
+
+            let diffX = currentX - dragStartX;
+            let diffY = currentY - dragStartY;
+
+            // 移動超過 5px 視為拖曳而非點擊
+            if (Math.abs(diffX) > 5 || Math.abs(diffY) > 5) {
+                hasMoved = true;
+            }
+
+            if (hasMoved) {
+                if (e.cancelable) e.preventDefault(); // 防止手機畫面捲動
+                
+                let newLeft = initialLeft + diffX;
+                let newTop = initialTop + diffY;
+
+                // 邊界限制 (避免按鈕被拖出螢幕以外)
+                let maxLeft = window.innerWidth - fabContainer.offsetWidth;
+                let maxTop = window.innerHeight - fabContainer.offsetHeight;
+
+                newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                newTop = Math.max(0, Math.min(newTop, maxTop));
+
+                fabContainer.style.left = newLeft + 'px';
+                fabContainer.style.top = newTop + 'px';
+            }
+        }
+
+        function dragEnd(e) {
+            isDragging = false;
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('mouseup', dragEnd);
+            document.removeEventListener('touchend', dragEnd);
+        }
+
+        // 綁定拖曳事件
+        fabToggleBtn.addEventListener('mousedown', dragStart);
+        fabToggleBtn.addEventListener('touchstart', dragStart, { passive: true });
+
+        // 取代原本 HTML 中的 onclick，避免拖曳完畢時誤觸發展開面板
+        fabToggleBtn.addEventListener('click', function(e) {
+            if (hasMoved) {
+                e.preventDefault();
+                return;
+            }
+            toggleFontPanel();
+        });
+
+        // 視窗縮放時，重新檢查按鈕是否跑出畫面外
+        window.addEventListener('resize', () => {
+            if (fabContainer.style.left) {
+                let currentLeft = parseFloat(fabContainer.style.left);
+                let currentTop = parseFloat(fabContainer.style.top);
+                let maxLeft = window.innerWidth - fabContainer.offsetWidth;
+                let maxTop = window.innerHeight - fabContainer.offsetHeight;
+                
+                fabContainer.style.left = Math.max(0, Math.min(currentLeft, maxLeft)) + 'px';
+                fabContainer.style.top = Math.max(0, Math.min(currentTop, maxTop)) + 'px';
+            }
+        });
 
         // ==================== [頁面初始化] ====================
         window.onload = function() {
